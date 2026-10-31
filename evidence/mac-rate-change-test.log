@@ -1,0 +1,5 @@
+2026-10-31 06:29:06.502 FxTap[11976:10966040] self process=135 exclusive=1 mute=1 tap device=BuiltInSpeakerDevice
+2026-10-31 06:29:06.533 FxTap[11976:10966040] aggregate=137 tap=136 tap-list-bytes=8 tap-format=1/2/48000
+2026-10-31 06:29:06.543 FxTap[11976:10966040] Running at 48000 Hz, output BuiltInSpeakerDevice
+2026-10-31 06:29:09.284 FxTap[11976:10966040] Output device or sample rate changed; stopping for safe restart
+2026-10-31 06:29:09.284 FxTap[11976:10966040] callbacks=249 bad_layouts=0 active_input_frames=0 changed_frames=0 clipped_samples=0

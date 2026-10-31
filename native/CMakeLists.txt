@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(FxSoundPortableDSP LANGUAGES CXX)
+add_library(fx_dsp STATIC FxEq.cpp)
+target_include_directories(fx_dsp PUBLIC include)
+target_compile_features(fx_dsp PUBLIC cxx_std_17)
+add_executable(fxwav fxwav.cpp)
+target_link_libraries(fxwav PRIVATE fx_dsp)

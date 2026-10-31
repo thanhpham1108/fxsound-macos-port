@@ -1,0 +1,4 @@
+2026-10-30 21:08:34.280 FxTap[62677:10600768] self process=135 exclusive=1 mute=1 tap device=BuiltInSpeakerDevice
+2026-10-30 21:08:34.310 FxTap[62677:10600768] aggregate=137 tap=136 tap-list-bytes=8 tap-format=1/2/48000
+2026-10-30 21:08:34.321 FxTap[62677:10600768] Running at 48000 Hz, output BuiltInSpeakerDevice
+2026-10-30 21:08:41.179 FxTap[62677:10600768] callbacks=643 bad_layouts=0 active_input_frames=138016 changed_frames=0 clipped_samples=0

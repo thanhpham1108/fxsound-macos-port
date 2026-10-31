@@ -1,0 +1,15 @@
+tools/
+upstream/
+native/fxwav.exe
+native/*.obj
+native/*.o
+native/*.lib
+native/*.pdb
+native/build/
+macos/build/
+macos/*.app/
+macos/gui/build/
+dist/
+__pycache__/
+*.pyc
+.tmp/
