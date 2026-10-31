@@ -10,6 +10,25 @@ An unofficial Apple Silicon port of FxSound that processes audio from other macO
 - Thirteen factory presets converted from the installed FxSound 1.2.16 preset files
 - Source muting and own-process exclusion to prevent double playback and feedback
 
+## Install with Homebrew
+
+On an Apple Silicon Mac running macOS 14.2 or later:
+
+```sh
+brew install --cask thanhpham1108/fxsound/fxsound-mac
+```
+
+Open **FxSound Mac** from Applications and allow **System Audio Recording** when macOS prompts. This development preview is not Apple-notarized; if Gatekeeper blocks the first launch, try opening it once and then choose **Open Anyway** in **System Settings > Privacy & Security**.
+
+Upgrade or remove it with:
+
+```sh
+brew upgrade --cask fxsound-mac
+brew uninstall --cask fxsound-mac
+```
+
+## Build from source
+
 Build and package on a Mac with Xcode Command Line Tools and CMake:
 
 ```sh
