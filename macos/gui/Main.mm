@@ -333,10 +333,17 @@ public:
     }
     void paint(juce::Graphics& g) override {
         g.fillAll(background);
+        juce::Path iconWave;
+        iconWave.startNewSubPath(34.f,29.f);
+        iconWave.lineTo(37.f,29.f);
+        iconWave.cubicTo(39.f,29.f,39.f,21.f,42.f,21.f);
+        iconWave.cubicTo(46.f,21.f,43.f,37.f,46.f,37.f);
+        iconWave.cubicTo(50.f,37.f,48.f,29.f,51.f,29.f);
+        iconWave.lineTo(54.f,29.f);
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff36d8e7),34.f,29.f,
+                                                juce::Colour(0xffff5e90),54.f,29.f,false));
+        g.strokePath(iconWave,juce::PathStrokeType(2.8f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
         g.setColour(juce::Colours::white);
-        const float logoX=34.f;
-        const float heights[]={7.f,13.f,19.f,11.f,5.f};
-        for(int i=0;i<5;++i)g.fillRoundedRectangle(logoX+i*4.f,29.f-heights[i]*0.5f,2.5f,heights[i],1.2f);
         g.setFont(juce::Font(juce::FontOptions("Avenir Next",24.f,juce::Font::bold)));
         g.drawText("FxSound",57,10,95,38,juce::Justification::centredLeft);
         g.setColour(panel);g.fillRoundedRectangle(32,72,1002,489,9.f);
@@ -395,7 +402,7 @@ public:
         return "FxSound Mac";
 #endif
     }
-    const juce::String getApplicationVersion() override {return "0.1.3";}
+    const juce::String getApplicationVersion() override {return "0.1.4";}
     void initialise(const juce::String&) override {
         window=std::make_unique<MainWindow>();
         window->setUsingNativeTitleBar(true);

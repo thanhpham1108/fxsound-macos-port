@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(FxSoundMac VERSION 0.1.3 LANGUAGES C CXX OBJCXX)
+project(FxSoundMac VERSION 0.1.4 LANGUAGES C CXX OBJCXX)
 set(CMAKE_CXX_STANDARD 17)
 option(FXSOUND_VENTURA "Build the macOS 13 BlackHole routing edition" OFF)
 if(FXSOUND_VENTURA)
@@ -56,6 +56,7 @@ target_link_libraries(FxSoundMac PRIVATE
     "-framework JavaScriptCore")
 
 add_custom_command(TARGET FxSoundMac POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../assets/FxSoundMac.icns" "$<TARGET_BUNDLE_DIR:FxSoundMac>/Contents/Resources/FxSoundMac.icns"
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:FxSoundMac>/Contents/Resources/dsp"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../dsp" "$<TARGET_BUNDLE_DIR:FxSoundMac>/Contents/Resources/dsp"
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:FxSoundMac>/Contents/Resources/presets"

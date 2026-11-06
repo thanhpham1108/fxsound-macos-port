@@ -9,6 +9,7 @@ An unofficial Apple Silicon port of FxSound that processes audio from other macO
 - Clarity, Ambience, Surround Sound, Dynamic Boost, Bass Boost, Maximizer, and ten-band EQ
 - Thirteen factory presets converted from the installed FxSound 1.2.16 preset files
 - Source muting and own-process exclusion to prevent double playback and feedback
+- Original multicolour waveform icon for the macOS app
 
 ## Install
 
