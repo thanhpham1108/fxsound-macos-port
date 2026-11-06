@@ -50,7 +50,7 @@ The offline full-chain test matched FxSound's upstream golden-tested JavaScript 
 
 See [implementation status](docs/IMPLEMENTATION_STATUS.md), [source audit and signal path](docs/PORT_PLAN.md), and [macOS build details](macos/README.md).
 
-For macOS 13 and earlier, see the [legacy audio routing investigation](docs/OLDER_MACOS_SUPPORT.md). The current release still requires macOS 14.2 or later.
+For macOS 13, see the [unreleased Ventura preview](macos/VENTURA_PREVIEW.md) and [legacy audio routing investigation](docs/OLDER_MACOS_SUPPORT.md). The supported release still requires macOS 14.2 or later.
 
 ## Licensing
 

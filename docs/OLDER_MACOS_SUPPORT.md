@@ -2,7 +2,7 @@
 
 ## Decision
 
-Target macOS 13 Ventura as the first legacy build. Keep the released app's 14.2 minimum until a separate live system-audio backend works on Ventura. The existing FxSound DSP and JUCE interface can be shared; changing `LSMinimumSystemVersion` alone cannot enable system-audio processing.
+Target macOS 13 Ventura as the first legacy build. A separate BlackHole-based preview now compiles, but keep the supported release's 14.2 minimum until live system-audio processing works on Ventura. The existing FxSound DSP and JUCE interface are shared; changing `LSMinimumSystemVersion` alone cannot enable system-audio processing.
 
 ## Evidence
 
@@ -22,4 +22,4 @@ Target macOS 13 Ventura as the first legacy build. Keep the released app's 14.2 
 
 ## Current limit
 
-No Ventura or Monterey machine is connected for runtime validation, and BlackHole is not installed on the working Mac. No release currently claims support below macOS 14.2.
+No Ventura or Monterey machine is connected for runtime validation, and BlackHole is not installed on the working Mac. The preview has only been compiled and tested for missing-driver behavior on a newer Mac. No release currently claims support below macOS 14.2. See [Ventura preview status](../macos/VENTURA_PREVIEW.md).

@@ -11,4 +11,7 @@ std::vector<OutputDevice> outputDevices();
 AudioHandle startAudio(const Settings& settings, const std::string& deviceUID, std::string& error);
 void stopAudio(AudioHandle handle);
 bool outputChanged(AudioHandle handle);
+// Implemented by the Ventura build; never changes system routing when queried.
+bool legacyDriverReady(std::string& error);
+bool legacyRouteLost(AudioHandle handle);
 }

@@ -27,6 +27,15 @@ public:
         setColour(juce::TextButton::buttonColourId, background);
         setColour(juce::TextButton::textColourOffId, pink);
     }
+    juce::Font getComboBoxFont(juce::ComboBox&) override {
+        return juce::Font(juce::FontOptions("Avenir Next",19.f,juce::Font::bold));
+    }
+    juce::Font getLabelFont(juce::Label&) override {
+        return juce::Font(juce::FontOptions("Avenir Next",18.f,juce::Font::bold));
+    }
+    juce::Font getPopupMenuFont() override {
+        return juce::Font(juce::FontOptions("Avenir Next",18.f,juce::Font::bold));
+    }
     void drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox&) override {
         g.setColour(black); g.fillRoundedRectangle(0, 0, (float)w, (float)h, 7.f);
         juce::Path arrow; arrow.startNewSubPath((float)w-29, h*0.46f);
@@ -93,6 +102,43 @@ class MainComponent final : public juce::Component, private juce::Timer {
     std::string selectedUID;
     bool followDefault=true;
     bool loading=false;
+#ifdef FXSOUND_LEGACY_BACKEND
+    bool legacyAuthorized=false,legacyPromptShown=false;
+    void showLegacySetup(){
+        if(@available(macOS 14.0,*)){
+            setStatus("Ventura edition is for macOS 13 only",true);
+            return;
+        }
+        if(legacyPromptShown)return;
+        std::string error;
+        const bool installed=fxport::legacyDriverReady(error);
+        legacyPromptShown=true;
+        auto safe=juce::Component::SafePointer<MainComponent>(this);
+        if(!installed){
+            setStatus(error,true);
+            juce::AlertWindow::showOkCancelBox(juce::AlertWindow::QuestionIcon,
+                "Install BlackHole 2ch",
+                "FxSound on macOS 13 needs the BlackHole 2ch virtual audio device. Install it from the official project, then choose Set Up Audio from the FxSound menu.",
+                "Open BlackHole website","Later",nullptr,
+                juce::ModalCallbackFunction::create([safe](int choice){
+                    if(!safe)return;
+                    safe->legacyPromptShown=false;
+                    if(choice)juce::URL("https://github.com/ExistentialAudio/BlackHole").launchInDefaultBrowser();
+                }));
+            return;
+        }
+        setStatus("Ready to enable Ventura audio routing");
+        juce::AlertWindow::showOkCancelBox(juce::AlertWindow::QuestionIcon,
+            "Enable FxSound system audio",
+            "FxSound will temporarily make BlackHole the Mac's output, process audio, and play it through your selected speakers or headphones. Your previous output will be restored when FxSound quits or crashes.",
+            "Enable","Later",nullptr,
+            juce::ModalCallbackFunction::create([safe](int choice){
+                if(!safe)return;
+                safe->legacyPromptShown=false;
+                if(choice){safe->legacyAuthorized=true;safe->restartAudio();}
+            }));
+    }
+#endif
     juce::String snapshotPath;
     bool snapshotWritten=false;
 
@@ -127,6 +173,9 @@ class MainComponent final : public juce::Component, private juce::Timer {
         if(loading)return;
         readControls();
         if(audio){fxport::stopAudio(audio);audio=nullptr;}
+#ifdef FXSOUND_LEGACY_BACKEND
+        if(!legacyAuthorized){showLegacySetup();return;}
+#endif
         std::string error;
         audio=fxport::startAudio(settings,followDefault?std::string{}:selectedUID,error);
         setStatus(audio?(settings.power?"Processing system audio":"FxSound off · audio passing through"):
@@ -158,6 +207,9 @@ class MainComponent final : public juce::Component, private juce::Timer {
         juce::PopupMenu popup;
         popup.addItem(1,"Reset to selected preset");
         popup.addItem(2,"Refresh output devices");
+#ifdef FXSOUND_LEGACY_BACKEND
+        popup.addItem(4,"Set Up Audio");
+#endif
         popup.addSeparator();
         popup.addItem(3,"About this port");
         popup.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(menu),
@@ -167,6 +219,9 @@ class MainComponent final : public juce::Component, private juce::Timer {
                     safe->settings=safe->presets[(size_t)safe->presetBox.getSelectedItemIndex()].settings;
                     safe->syncControls();safe->restartAudio();
                 } else if(choice==2) safe->refreshDevices();
+#ifdef FXSOUND_LEGACY_BACKEND
+                else if(choice==4){safe->legacyAuthorized=false;safe->restartAudio();}
+#endif
                 else if(choice==3) juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon,
                     "FxSound Mac", "Unofficial FxSound macOS port · AGPL-3.0-or-later");
             });
@@ -181,7 +236,17 @@ class MainComponent final : public juce::Component, private juce::Timer {
                 png.writeImageToStream(image,*stream);
             }
         }
-        if(audio && fxport::outputChanged(audio)){refreshDevices();restartAudio();}
+        if(audio && fxport::outputChanged(audio)){
+#ifdef FXSOUND_LEGACY_BACKEND
+            if(fxport::legacyRouteLost(audio)){
+                fxport::stopAudio(audio);audio=nullptr;
+                legacyAuthorized=false;
+                setStatus("System output changed; FxSound routing paused",true);
+                return;
+            }
+#endif
+            refreshDevices();restartAudio();
+        }
     }
 public:
     MainComponent() {
@@ -258,7 +323,7 @@ public:
         deviceBox.setBounds(542,89,470,40);
         power.setBounds(874,9,37,37);
         menu.setBounds(152,10,36,35);
-        status.setBounds(675,530,338,24);
+        status.setBounds(558,237,436,24);
         for(size_t i=0;i<effects.size();++i)effects[i].setBounds(69,316+(int)i*43,112,20);
         for(size_t i=0;i<eqGains.size();++i){
             int center=290+(int)i*74;
@@ -272,7 +337,7 @@ public:
         const float logoX=34.f;
         const float heights[]={7.f,13.f,19.f,11.f,5.f};
         for(int i=0;i<5;++i)g.fillRoundedRectangle(logoX+i*4.f,29.f-heights[i]*0.5f,2.5f,heights[i],1.2f);
-        g.setFont(juce::Font(juce::FontOptions(20.f).withStyle("Bold")));
+        g.setFont(juce::Font(juce::FontOptions("Avenir Next",24.f,juce::Font::bold)));
         g.drawText("FxSound",57,10,95,38,juce::Justification::centredLeft);
         g.setColour(panel);g.fillRoundedRectangle(32,72,1002,489,9.f);
         g.setColour(black);g.fillRoundedRectangle(52,149,960,120,8.f);
@@ -280,12 +345,13 @@ public:
         g.fillRoundedRectangle(237,285,775,256,8.f);
         g.setColour(dimPink);
         for(int x=80;x<986;x+=8)g.fillRect(x,208,3,1);
-        g.setFont(juce::Font(juce::FontOptions(12.f)));
+        g.setFont(juce::Font(juce::FontOptions("Avenir Next",18.f,juce::Font::bold)));
         for(size_t i=0;i<effects.size();++i){
             const int y=300+(int)i*43;
-            g.setColour(labelColour);g.drawText(effectNames[i],69,y,123,16,juce::Justification::centredLeft);
-            g.drawText(juce::String((int)effects[i].getValue()),181,y+16,20,18,juce::Justification::centredLeft);
+            g.setColour(labelColour);g.drawFittedText(effectNames[i],69,y,134,19,juce::Justification::centredLeft,1,0.85f);
+            g.drawText(juce::String((int)effects[i].getValue()),181,y+17,20,19,juce::Justification::centredLeft);
         }
+        g.setFont(juce::Font(juce::FontOptions("Avenir Next",16.f,juce::Font::bold)));
         juce::Path line;
         for(size_t i=0;i<eqGains.size();++i){
             const float cx=290.f+(float)i*74.f;
@@ -304,7 +370,9 @@ public:
             g.setColour(labelColour);g.drawText(juce::String((int)eqGains[i].getValue()),(int)cx-17,(int)cy-27,34,18,juce::Justification::centred);
             const float hz=(float)frequencies[i].getValue();
             juce::String label=hz>=1000?juce::String(hz/1000.f,2)+" kHz":juce::String((int)std::round(hz))+" Hz";
-            g.drawText(label,(int)cx-32,478,64,18,juce::Justification::centred);
+            g.setFont(juce::Font(juce::FontOptions("Avenir Next",15.f,juce::Font::bold)));
+            g.drawFittedText(label,(int)cx-34,477,68,20,juce::Justification::centred,1,0.8f);
+            g.setFont(juce::Font(juce::FontOptions("Avenir Next",16.f,juce::Font::bold)));
             g.setColour(pink);
         }
     }
@@ -320,8 +388,14 @@ class FxApplication final : public juce::JUCEApplication {
     };
     std::unique_ptr<MainWindow> window;
 public:
-    const juce::String getApplicationName() override {return "FxSound Mac";}
-    const juce::String getApplicationVersion() override {return "0.1.2";}
+    const juce::String getApplicationName() override {
+#ifdef FXSOUND_LEGACY_BACKEND
+        return "FxSound Mac Ventura";
+#else
+        return "FxSound Mac";
+#endif
+    }
+    const juce::String getApplicationVersion() override {return "0.1.3";}
     void initialise(const juce::String&) override {
         window=std::make_unique<MainWindow>();
         window->setUsingNativeTitleBar(true);
