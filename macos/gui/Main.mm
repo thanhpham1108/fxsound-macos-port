@@ -91,6 +91,7 @@ class MainComponent final : public juce::Component, private juce::Timer {
     fxport::Settings settings;
     fxport::AudioHandle audio=nullptr;
     std::string selectedUID;
+    bool followDefault=true;
     bool loading=false;
     juce::String snapshotPath;
     bool snapshotWritten=false;
@@ -127,7 +128,7 @@ class MainComponent final : public juce::Component, private juce::Timer {
         readControls();
         if(audio){fxport::stopAudio(audio);audio=nullptr;}
         std::string error;
-        audio=fxport::startAudio(settings,selectedUID,error);
+        audio=fxport::startAudio(settings,followDefault?std::string{}:selectedUID,error);
         setStatus(audio?(settings.power?"Processing system audio":"FxSound off · audio passing through"):
                   juce::String(error),!audio);
     }
@@ -136,15 +137,21 @@ class MainComponent final : public juce::Component, private juce::Timer {
         deviceBox.clear(juce::dontSendNotification);
         int id=1;
         for(const auto& device:devices)deviceBox.addItem(device.name,id++);
-        int selected=0;
+        int selected=-1, defaultIndex=-1;
         for(size_t i=0;i<devices.size();++i){
-            if(devices[i].uid==selectedUID)selected=(int)i;
-            else if(selectedUID.empty()&&devices[i].isDefault)selected=(int)i;
+            if(devices[i].isDefault)defaultIndex=(int)i;
+            if(!followDefault && devices[i].uid==selectedUID)selected=(int)i;
         }
         if(!devices.empty()){
-            selected=juce::jlimit(0,(int)devices.size()-1,selected);
+            if(selected<0){
+                followDefault=true;
+                selected=defaultIndex>=0?defaultIndex:0;
+            }
             selectedUID=devices[(size_t)selected].uid;
             deviceBox.setSelectedId(selected+1,juce::dontSendNotification);
+        }else{
+            selectedUID.clear();
+            deviceBox.setSelectedId(0,juce::dontSendNotification);
         }
     }
     void showMenu() {
@@ -202,6 +209,7 @@ public:
         deviceBox.onChange=[this]{
             int index=deviceBox.getSelectedItemIndex();
             selectedUID=index>=0 && (size_t)index<devices.size()?devices[(size_t)index].uid:"";
+            followDefault=index>=0 && (size_t)index<devices.size() && devices[(size_t)index].isDefault;
             restartAudio();
         };
         addAndMakeVisible(power);
@@ -313,7 +321,7 @@ class FxApplication final : public juce::JUCEApplication {
     std::unique_ptr<MainWindow> window;
 public:
     const juce::String getApplicationName() override {return "FxSound Mac";}
-    const juce::String getApplicationVersion() override {return "0.1.1";}
+    const juce::String getApplicationVersion() override {return "0.1.2";}
     void initialise(const juce::String&) override {
         window=std::make_unique<MainWindow>();
         window->setUsingNativeTitleBar(true);

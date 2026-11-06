@@ -79,7 +79,7 @@ struct Engine {
     bool dryBypass=false;
     bool started=false;
     bool statsLogged=false;
-    bool usesDefault=true;
+    AudioObjectID defaultAtStart=0;
     bool listenDefault=false,listenAlive=false,listenRate=false;
     std::atomic<bool> deviceChanged{false};
     static OSStatus changed(AudioObjectID,UInt32,const AudioObjectPropertyAddress*,void* context) noexcept {
@@ -91,10 +91,8 @@ struct Engine {
         if(!property(physical,kAudioDevicePropertyDeviceIsAlive,&alive,size)||!alive){NSLog(@"Device change: selected output is unavailable");return true;}
         Float64 rate=0;size=sizeof(rate);
         if(!property(physical,kAudioDevicePropertyNominalSampleRate,&rate,size)||std::fabs(rate-dspSampleRate)>0.5){NSLog(@"Device change: rate %.0f -> %.0f",dspSampleRate,rate);return true;}
-        if(usesDefault){
-            AudioObjectID current=0;size=sizeof(current);
-            if(!property(kAudioObjectSystemObject,kAudioHardwarePropertyDefaultOutputDevice,&current,size)||current!=physical){NSLog(@"Device change: default %u -> %u",physical,current);return true;}
-        }
+        AudioObjectID current=0;size=sizeof(current);
+        if(!property(kAudioObjectSystemObject,kAudioHardwarePropertyDefaultOutputDevice,&current,size)||current!=defaultAtStart){NSLog(@"Device change: default %u -> %u",defaultAtStart,current);return true;}
         return false;
     }
     static OSStatus io(AudioObjectID, const AudioTimeStamp*, const AudioBufferList* in, const AudioTimeStamp*, AudioBufferList* out, const AudioTimeStamp*, void* context) noexcept {
@@ -173,7 +171,6 @@ struct Engine {
     ~Engine(){stop();}
     bool start(float boostDb, NSString* selectedUID) {
         AudioObjectID output=0, self=0;UInt32 size=sizeof(output);
-        usesDefault=selectedUID==nil;
         if(selectedUID){
             std::vector<AudioObjectID> devices;
             if(!outputDeviceIDs(devices))return false;
@@ -184,10 +181,11 @@ struct Engine {
             if(!outputDeviceIDs(devices))return false;
             output=0;
             for(auto id:devices)if(physicalOutput(id)){output=id;break;}
-            usesDefault=false;
         }
         if(!output||!physicalOutput(output)){NSLog(@"No supported physical output");return false;}
         physical=output;
+        size=sizeof(defaultAtStart);
+        property(kAudioObjectSystemObject,kAudioHardwarePropertyDefaultOutputDevice,&defaultAtStart,size);
         pid_t pid=getpid();size=sizeof(self);
         if(!property(kAudioObjectSystemObject,kAudioHardwarePropertyTranslatePIDToProcessObject,&self,size,kAudioObjectPropertyScopeGlobal,sizeof(pid),&pid)||!self){NSLog(@"Cannot exclude own audio process");return false;}
         NSString* uid=deviceUID(output);if(!uid)return false;

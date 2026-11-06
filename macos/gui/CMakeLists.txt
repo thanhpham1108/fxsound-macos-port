@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(FxSoundMac VERSION 0.1.1 LANGUAGES C CXX OBJCXX)
+project(FxSoundMac VERSION 0.1.2 LANGUAGES C CXX OBJCXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "14.2" CACHE STRING "Minimum macOS version")
 

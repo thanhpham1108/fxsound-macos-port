@@ -10,6 +10,7 @@
 - Offline 44.1 kHz full-chain output matched the independent upstream tutorial pipeline sample for sample (`maxError=0`) with all five effects enabled.
 - Live 48 kHz GUI test captured and modified audio from a separate `afplay` process. The final packaged-source run reported 836 callbacks, zero bad layouts, zero DSP failures, zero measured callback overruns, and zero samples above full scale; its slowest measured callback was 8.399 ms.
 - In v0.1.1, the red window button quits the app. A continuous 150-second 48 kHz live test reported 14,334 callbacks, zero bad layouts, DSP failures, non-finite blocks, measured callback overruns, or clipped samples. The listener reported no audible crackling during this test. Three-minute offline DSP state tests passed for Music, Voice, and General.
+- In v0.1.2, the output selector follows macOS's default output until the user chooses a different one. With 3.5 mm headphones selected as the default, Core Audio enumerated `External Headphones`, the tap processed headphone audio with no DSP failures or clipping in the short test, and the listener confirmed audible preset and power changes. Unplugging and replugging switched the UI between speakers and headphones; the device handoff briefly interrupted the tap as it restarted.
 - Device and sample-rate change listeners validate the current physical device before restarting. The private tap uses `CATapMuted` to suppress the original playback route and excludes this app to avoid feedback.
 
 ## Known limits
