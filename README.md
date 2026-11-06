@@ -18,7 +18,7 @@ If Homebrew is available, install the app with:
 brew install --cask thanhpham1108/fxsound/fxsound-mac
 ```
 
-Homebrew currently supports macOS 15 or later. The FxSound app itself supports Apple Silicon Macs running macOS 14.2 or later; on macOS 14, download `FxSound-Mac-0.1.0-arm64.zip` from the [v0.1.0 release](https://github.com/thanhpham1108/fxsound-macos-port/releases/tag/v0.1.0), unpack it, and move **FxSound Mac.app** into Applications.
+Homebrew currently supports macOS 15 or later. The FxSound app itself supports Apple Silicon Macs running macOS 14.2 or later; on macOS 14, download the ZIP from the [releases page](https://github.com/thanhpham1108/fxsound-macos-port/releases), unpack it, and move **FxSound Mac.app** into Applications.
 
 Open **FxSound Mac** from Applications and allow **System Audio Recording** when macOS prompts. This development preview is not Apple-notarized; if Gatekeeper blocks the first launch, try opening it once and then choose **Open Anyway** in **System Settings > Privacy & Security**.
 

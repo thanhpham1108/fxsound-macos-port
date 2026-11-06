@@ -303,12 +303,19 @@ public:
 };
 
 class FxApplication final : public juce::JUCEApplication {
-    std::unique_ptr<juce::DocumentWindow> window;
+    class MainWindow final : public juce::DocumentWindow {
+    public:
+        MainWindow() : juce::DocumentWindow("FxSound Mac", background, juce::DocumentWindow::allButtons) {}
+        void closeButtonPressed() override {
+            if (auto* app = juce::JUCEApplication::getInstance()) app->systemRequestedQuit();
+        }
+    };
+    std::unique_ptr<MainWindow> window;
 public:
     const juce::String getApplicationName() override {return "FxSound Mac";}
-    const juce::String getApplicationVersion() override {return "0.1.0";}
+    const juce::String getApplicationVersion() override {return "0.1.1";}
     void initialise(const juce::String&) override {
-        window=std::make_unique<juce::DocumentWindow>("FxSound Mac",background,juce::DocumentWindow::allButtons);
+        window=std::make_unique<MainWindow>();
         window->setUsingNativeTitleBar(true);
         window->setContentOwned(new MainComponent(),true);
         window->centreWithSize(1050,580);

@@ -9,6 +9,10 @@
     var eq = new ns.sos.EqStage(sampleRate, settings);
     var params = ns.controls.effectParams(settings, sampleRate);
     var play = new ns.Play(sampleRate, params);
+    // The plot traces in the tutorial allocate on every Core Audio callback.
+    // The live app has no plot consumer, so keep the callback allocation-free.
+    eq.traceEnabled = false;
+    play.maxi.traceEnabled = false;
     return {
       process: function (buffer, frames) {
         if (settings.power) {
@@ -18,9 +22,6 @@
           var gain = eq.masterGain;
           for (var i = 0; i < frames * 2; ++i) buffer[i] = Math.fround(buffer[i] * gain);
         }
-        // The tutorial records these for plots. Live processing has no plot consumer.
-        eq.trace.length = 0;
-        play.maxi.trace.length = 0;
       }
     };
   };

@@ -74,7 +74,8 @@ struct Engine {
     bool eqOnly=false;
     double dspSampleRate=48000;
     std::atomic<unsigned long> callbacks{0}, badLayouts{0}, activeInputFrames{0}, changedFrames{0}, clippedSamples{0};
-    std::atomic<unsigned long> dspFailures{0}, callbackOverruns{0}, maxCallbackUs{0};
+    std::atomic<unsigned long> dspFailures{0}, nonFiniteBlocks{0}, callbackOverruns{0}, maxCallbackUs{0};
+    std::atomic<bool> dspNeedsRestart{false};
     bool dryBypass=false;
     bool started=false;
     bool statsLogged=false;
@@ -112,6 +113,17 @@ struct Engine {
             bool processed=engine.eqOnly
                 ? engine.dsp->process(static_cast<float*>(out->mBuffers[0].mData),bytes/8,false)
                 : engine.fullDsp->process(static_cast<float*>(out->mBuffers[0].mData),bytes/8);
+            if(processed){
+                const float* result=static_cast<const float*>(out->mBuffers[0].mData);
+                for(size_t i=0;i<bytes/sizeof(float);++i){
+                    if(!std::isfinite(result[i])){
+                        processed=false;
+                        engine.nonFiniteBlocks.fetch_add(1,std::memory_order_relaxed);
+                        engine.dspNeedsRestart.store(true,std::memory_order_relaxed);
+                        break;
+                    }
+                }
+            }
             if(!processed){
                 std::memcpy(out->mBuffers[0].mData,in->mBuffers[0].mData,bytes);
                 engine.dspFailures.fetch_add(1,std::memory_order_relaxed);
@@ -152,8 +164,8 @@ struct Engine {
         dsp.reset();
         fullDsp.reset();
         if(!statsLogged && callbacks.load()){
-            NSLog(@"callbacks=%lu bad_layouts=%lu dsp_failures=%lu callback_overruns=%lu max_callback_us=%lu active_input_frames=%lu changed_frames=%lu clipped_samples=%lu",
-                  callbacks.load(),badLayouts.load(),dspFailures.load(),callbackOverruns.load(),maxCallbackUs.load(),
+            NSLog(@"callbacks=%lu bad_layouts=%lu dsp_failures=%lu non_finite_blocks=%lu callback_overruns=%lu max_callback_us=%lu active_input_frames=%lu changed_frames=%lu clipped_samples=%lu",
+                  callbacks.load(),badLayouts.load(),dspFailures.load(),nonFiniteBlocks.load(),callbackOverruns.load(),maxCallbackUs.load(),
                   activeInputFrames.load(),changedFrames.load(),clippedSamples.load());
             statsLogged=true;
         }
@@ -260,7 +272,15 @@ AudioHandle startAudio(const Settings& settings, const std::string& selectedUID,
     return engine;
 }
 void stopAudio(AudioHandle handle){delete static_cast<Engine*>(handle);}
-bool outputChanged(AudioHandle handle){return handle && static_cast<Engine*>(handle)->meaningfulDeviceChange();}
+bool outputChanged(AudioHandle handle){
+    if(!handle)return false;
+    auto* engine=static_cast<Engine*>(handle);
+    if(engine->dspNeedsRestart.exchange(false,std::memory_order_relaxed)){
+        NSLog(@"DSP produced non-finite audio; restarting processing state");
+        return true;
+    }
+    return engine->meaningfulDeviceChange();
+}
 }
 static volatile sig_atomic_t quitFlag=0;
 static void quitHandler(int){quitFlag=1;}

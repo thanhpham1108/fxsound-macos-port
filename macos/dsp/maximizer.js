@@ -108,7 +108,7 @@ This stage ALWAYS runs when FxSound is powered on, even with Dynamic Boost at 0.
       buf[k] = f(f(out1 * f(1.0)) + f(f(0.0) * in1));       // kerWetDry(wet 1, dry 0)
       buf[k + 1] = f(f(out2 * f(1.0)) + f(f(0.0) * in2));
     }
-    this.trace.push(gainSum / n);
+    if (this.traceEnabled !== false) this.trace.push(gainSum / n);
   };
 
   ns.Maximizer = Maximizer;

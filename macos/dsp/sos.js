@@ -197,7 +197,7 @@ In FxSound all of these run inside ONE stage (GraphicEqProcess), before the effe
     }
     if (opts.normalization !== false && this.targetRms !== f(1)) this.normalize(buf, n, sumSquares);
     if (opts.leveling !== false) this.applyVolumeLeveling(buf, n, 2, this.fs, -1);
-    this.trace.push(this.vl.gain);
+    if (this.traceEnabled !== false) this.trace.push(this.vl.gain);
   };
 
   // "NORMALIZATION NEW" block of sosProcessBuffer
