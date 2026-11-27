@@ -13,13 +13,14 @@
 - In v0.1.2, the output selector follows macOS's default output until the user chooses a different one. With 3.5 mm headphones selected as the default, Core Audio enumerated `External Headphones`, the tap processed headphone audio with no DSP failures or clipping in the short test, and the listener confirmed audible preset and power changes. Unplugging and replugging switched the UI between speakers and headphones; the device handoff briefly interrupted the tap as it restarted.
 - In v0.1.3, the interface uses larger, bold Avenir Next text across selectors, menus, status, effect labels, and EQ values. A separate macOS 13 Ventura edition compiles with BlackHole routing and a crash-recovery helper, but has not passed live Ventura testing and is not a supported release.
 - In v0.1.4, the app bundle and header use an original cyan-to-pink waveform mark; the former five-bar icon is no longer used.
+- In v0.1.5, JavaScriptCore runs on a worker thread with 21.3 ms of buffering on the tested 48 kHz built-in speaker route. A 20-minute `afplay` run produced 112,578 callbacks with a 36 µs maximum callback time and zero overruns, DSP failures, non-finite blocks, or clipped samples. The engine played 5,120 frames of dry fallback, about 107 ms in total. The stalled-worker regression test verifies that dry playback stays in order and processed playback resumes after the queue recovers.
 - Device and sample-rate change listeners validate the current physical device before restarting. The private tap uses `CATapMuted` to suppress the original playback route and excludes this app to avoid feedback.
 
 ## Known limits
 
 - Exact parity with the installed FxSound 1.2.16 binary is not established. The audited source project reports 1.2.15, and the full DSP comparison uses the upstream golden-tested port of that source.
 - The tap processes apps routed to the selected physical output. It does not capture applications routed to another output.
-- Only interleaved stereo float32 output at 44.1 or 48 kHz is accepted. Bluetooth, USB hot unplug, multichannel output, sleep/wake, and sustained playback on other hardware still need testing. The 150-second test does not prove all videos and presets will remain glitch-free.
+- Only interleaved stereo float32 output at 44.1 or 48 kHz is accepted. Bluetooth, USB hot unplug, multichannel output, sleep/wake, and longer playback sessions still need testing.
 - Control changes rebuild the tap and DSP, producing a short interruption. Preset editing/import/export and spectrum animation are not implemented yet.
 - The development package is ad hoc signed. Public distribution requires a Developer ID certificate and notarization; Gatekeeper rejects the current development signature when treated as a downloaded public release.
 - JUCE 9.0.4 is fetched during the build and used under its AGPL option. The app bundle includes FxSound/port AGPL, JUCE, and Apple sample notices.

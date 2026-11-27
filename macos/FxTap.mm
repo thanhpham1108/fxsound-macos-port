@@ -6,13 +6,17 @@
 #import <CoreAudio/CATapDescription.h>
 #include "FxEq.hpp"
 #include "FxJsDsp.hpp"
+#include "FxBufferedDsp.hpp"
 #include "FxPreset.hpp"
 #include "FxAudioBridge.hpp"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstring>
 #include <memory>
+#include <system_error>
+#include <utility>
 #include <vector>
 #include <signal.h>
 #include <unistd.h>
@@ -69,7 +73,7 @@ struct Engine {
     AudioObjectID physical=0;
     AudioDeviceIOProcID proc=nullptr;
     std::unique_ptr<fxport::Processor> dsp;
-    std::unique_ptr<fxport::JsDsp> fullDsp;
+    std::unique_ptr<fxport::BufferedDsp> bufferedDsp;
     fxport::Settings settings;
     bool eqOnly=false;
     double dspSampleRate=48000;
@@ -77,6 +81,7 @@ struct Engine {
     std::atomic<unsigned long> dspFailures{0}, nonFiniteBlocks{0}, callbackOverruns{0}, maxCallbackUs{0};
     std::atomic<bool> dspNeedsRestart{false};
     bool dryBypass=false;
+    float bypassGain=1.f;
     bool started=false;
     bool statsLogged=false;
     AudioObjectID defaultAtStart=0;
@@ -99,20 +104,23 @@ struct Engine {
         auto& engine=*static_cast<Engine*>(context); engine.callbacks.fetch_add(1,std::memory_order_relaxed);
         const auto callbackStart=std::chrono::steady_clock::now();
         if(!out)return noErr;
-        for(UInt32 i=0;i<out->mNumberBuffers;++i) if(out->mBuffers[i].mData) std::memset(out->mBuffers[i].mData,0,out->mBuffers[i].mDataByteSize);
         if(!in || in->mNumberBuffers!=1 || out->mNumberBuffers!=1 || !in->mBuffers[0].mData || !out->mBuffers[0].mData ||
            in->mBuffers[0].mNumberChannels!=2 || out->mBuffers[0].mNumberChannels!=2 ||
            in->mBuffers[0].mDataByteSize!=out->mBuffers[0].mDataByteSize || in->mBuffers[0].mDataByteSize%8) {
+            for(UInt32 i=0;i<out->mNumberBuffers;++i) if(out->mBuffers[i].mData) std::memset(out->mBuffers[i].mData,0,out->mBuffers[i].mDataByteSize);
             engine.badLayouts.fetch_add(1,std::memory_order_relaxed);return noErr;
         }
         const size_t bytes=in->mBuffers[0].mDataByteSize;
-        std::memcpy(out->mBuffers[0].mData,in->mBuffers[0].mData,bytes);
-        if(!engine.dryBypass) {
-            bool processed=engine.eqOnly
-                ? engine.dsp->process(static_cast<float*>(out->mBuffers[0].mData),bytes/8,false)
-                : engine.fullDsp->process(static_cast<float*>(out->mBuffers[0].mData),bytes/8);
+        const size_t frames=bytes/8;
+        const auto* source=static_cast<const float*>(in->mBuffers[0].mData);
+        auto* result=static_cast<float*>(out->mBuffers[0].mData);
+        unsigned long active=0,changed=0,clipped=0;
+        if(engine.bufferedDsp) {
+            changed=engine.bufferedDsp->process(source,result,frames);
+        } else if(engine.dsp) {
+            std::memcpy(result,source,bytes);
+            bool processed=engine.dsp->process(result,frames,false);
             if(processed){
-                const float* result=static_cast<const float*>(out->mBuffers[0].mData);
                 for(size_t i=0;i<bytes/sizeof(float);++i){
                     if(!std::isfinite(result[i])){
                         processed=false;
@@ -123,16 +131,17 @@ struct Engine {
                 }
             }
             if(!processed){
-                std::memcpy(out->mBuffers[0].mData,in->mBuffers[0].mData,bytes);
+                std::memcpy(result,source,bytes);
                 engine.dspFailures.fetch_add(1,std::memory_order_relaxed);
             }
+        } else if(engine.bypassGain!=1.f) {
+            for(size_t i=0;i<frames*2;++i) result[i]=source[i]*engine.bypassGain;
+        } else {
+            std::memcpy(result,source,bytes);
         }
-        const float* source=static_cast<const float*>(in->mBuffers[0].mData);
-        const float* result=static_cast<const float*>(out->mBuffers[0].mData);
-        unsigned long active=0,changed=0,clipped=0;
-        for(size_t i=0;i<bytes/8;++i){
+        for(size_t i=0;i<frames;++i){
             if(std::fabs(source[2*i])>1.e-4f||std::fabs(source[2*i+1])>1.e-4f)++active;
-            if(std::fabs(source[2*i]-result[2*i])>1.e-4f||std::fabs(source[2*i+1]-result[2*i+1])>1.e-4f)++changed;
+            if(!engine.bufferedDsp && (std::fabs(source[2*i]-result[2*i])>1.e-4f||std::fabs(source[2*i+1]-result[2*i+1])>1.e-4f))++changed;
             if(std::fabs(result[2*i])>1.f)++clipped;
             if(std::fabs(result[2*i+1])>1.f)++clipped;
         }
@@ -142,7 +151,7 @@ struct Engine {
         const auto elapsed=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-callbackStart).count();
         unsigned long previous=engine.maxCallbackUs.load(std::memory_order_relaxed);
         while(static_cast<unsigned long>(elapsed)>previous && !engine.maxCallbackUs.compare_exchange_weak(previous,static_cast<unsigned long>(elapsed),std::memory_order_relaxed)){}
-        const double budgetUs=1000000.0*(bytes/8)/engine.dspSampleRate;
+        const double budgetUs=1000000.0*frames/engine.dspSampleRate;
         if(elapsed>budgetUs)engine.callbackOverruns.fetch_add(1,std::memory_order_relaxed);
         return noErr;
     }
@@ -159,14 +168,16 @@ struct Engine {
         if(proc){if(started)AudioDeviceStop(aggregate,proc);AudioDeviceDestroyIOProcID(aggregate,proc);proc=nullptr;started=false;}
         if(aggregate){AudioHardwareDestroyAggregateDevice(aggregate);aggregate=0;}
         if(tap){AudioHardwareDestroyProcessTap(tap);tap=0;}
-        dsp.reset();
-        fullDsp.reset();
+        if(bufferedDsp) bufferedDsp->stop();
         if(!statsLogged && callbacks.load()){
-            NSLog(@"callbacks=%lu bad_layouts=%lu dsp_failures=%lu non_finite_blocks=%lu callback_overruns=%lu max_callback_us=%lu active_input_frames=%lu changed_frames=%lu clipped_samples=%lu",
-                  callbacks.load(),badLayouts.load(),dspFailures.load(),nonFiniteBlocks.load(),callbackOverruns.load(),maxCallbackUs.load(),
-                  activeInputFrames.load(),changedFrames.load(),clippedSamples.load());
+            NSLog(@"callbacks=%lu bad_layouts=%lu dsp_failures=%lu non_finite_blocks=%lu callback_overruns=%lu max_callback_us=%lu active_input_frames=%lu changed_frames=%lu clipped_samples=%lu dsp_fallback_frames=%zu",
+                  callbacks.load(),badLayouts.load(),dspFailures.load()+(bufferedDsp?bufferedDsp->failures():0),
+                  nonFiniteBlocks.load()+(bufferedDsp?bufferedDsp->nonFiniteBlocks():0),callbackOverruns.load(),maxCallbackUs.load(),
+                  activeInputFrames.load(),changedFrames.load(),clippedSamples.load(),bufferedDsp?bufferedDsp->fallbackFrames():0);
             statsLogged=true;
         }
+        bufferedDsp.reset();
+        dsp.reset();
     }
     ~Engine(){stop();}
     bool start(float boostDb, NSString* selectedUID) {
@@ -219,15 +230,28 @@ struct Engine {
             NSLog(@"Unsupported aggregate format; requires one interleaved stereo float32 input and output at 44.1/48 kHz");stop();return false;
         }
         dspSampleRate=inputFormat.mSampleRate;
-        if(eqOnly)dsp=std::make_unique<fxport::Processor>((float)inputFormat.mSampleRate,std::vector<fxport::Band>{{1000.f,boostDb,1.f}});
-        else {
-            fullDsp=std::make_unique<fxport::JsDsp>();
+        if(!dryBypass && eqOnly) {
+            dsp=std::make_unique<fxport::Processor>((float)dspSampleRate,std::vector<fxport::Band>{{1000.f,boostDb,1.f}});
+        } else if(!dryBypass && settings.power) {
+            auto fullDsp=std::make_unique<fxport::JsDsp>();
             NSString* resourcePath=[[NSBundle mainBundle] resourcePath];
             std::string scriptDirectory=[[resourcePath stringByAppendingPathComponent:@"dsp"] UTF8String];
-            if(!fullDsp->start(inputFormat.mSampleRate,settings,scriptDirectory)){
+            if(!fullDsp->start(dspSampleRate,settings,scriptDirectory)){
                 NSLog(@"Full DSP initialization failed: %s",fullDsp->error().c_str());stop();return false;
             }
             if(!fullDsp->warmup(64)){NSLog(@"Full DSP warmup failed");stop();return false;}
+            UInt32 bufferFrames=0;
+            size=sizeof(bufferFrames);
+            if(!property(aggregate,kAudioDevicePropertyBufferFrameSize,&bufferFrames,size)||!bufferFrames) bufferFrames=512;
+            const size_t delayFrames=2*std::min<size_t>(bufferFrames,fxport::JsDsp::maxFrames);
+            try {
+                bufferedDsp=std::make_unique<fxport::BufferedDsp>(std::move(fullDsp),delayFrames);
+            } catch(const std::system_error& error) {
+                NSLog(@"DSP worker could not start: %s",error.what());stop();return false;
+            }
+            NSLog(@"DSP playback buffer: %zu frames (%.1f ms)",delayFrames,1000.*delayFrames/dspSampleRate);
+        } else if(!dryBypass && settings.eq) {
+            bypassGain=static_cast<float>(std::pow(10.,settings.masterGainDb/20.f));
         }
         err=AudioDeviceCreateIOProcID(aggregate,io,this,&proc);
         if(err!=noErr){NSLog(@"Create IOProc failed: %d",(int)err);stop();return false;}
@@ -273,7 +297,8 @@ void stopAudio(AudioHandle handle){delete static_cast<Engine*>(handle);}
 bool outputChanged(AudioHandle handle){
     if(!handle)return false;
     auto* engine=static_cast<Engine*>(handle);
-    if(engine->dspNeedsRestart.exchange(false,std::memory_order_relaxed)){
+    if(engine->dspNeedsRestart.exchange(false,std::memory_order_relaxed) ||
+       (engine->bufferedDsp && engine->bufferedDsp->needsRestart())){
         NSLog(@"DSP produced non-finite audio; restarting processing state");
         return true;
     }

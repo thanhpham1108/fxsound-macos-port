@@ -1,9 +1,12 @@
 #!/bin/sh
 set -eu
-cd "$HOME/fxsound-port"
-archive="dist/FxSound-Mac-0.1.0-arm64.zip"
+repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo"
 app="macos/gui/build/FxSoundMac_artefacts/Release/FxSound Mac.app"
+version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist")
+archive="dist/FxSound-Mac-$version-arm64.zip"
 shasum -a 256 "$archive"
+unzip -tq "$archive"
 codesign --verify --deep --strict --verbose=2 "$app"
 test -f "$app/Contents/Resources/AGPL-3.0.txt"
 test -f "$app/Contents/Resources/JUCE-LICENSE.md"

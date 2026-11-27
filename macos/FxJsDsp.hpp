@@ -19,6 +19,7 @@ struct Settings {
 
 class JsDsp {
 public:
+    static constexpr size_t maxFrames = 8192;
     JsDsp();
     ~JsDsp();
     JsDsp(const JsDsp&) = delete;

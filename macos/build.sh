@@ -4,7 +4,7 @@ repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo"
 mkdir -p macos/FxTap.app/Contents/MacOS macos/FxTap.app/Contents/Resources
 clang++ -std=c++17 -O2 -fobjc-arc -mmacosx-version-min=14.2 \
-  -I native/include macos/FxTap.mm macos/FxJsDsp.mm macos/FxPreset.mm native/FxEq.cpp \
+  -I native/include macos/FxTap.mm macos/FxBufferedDsp.cpp macos/FxJsDsp.mm macos/FxPreset.mm native/FxEq.cpp \
   -framework CoreAudio -framework Foundation -framework JavaScriptCore \
   -o macos/FxTap.app/Contents/MacOS/FxTap
 cp macos/Info.plist macos/FxTap.app/Contents/Info.plist

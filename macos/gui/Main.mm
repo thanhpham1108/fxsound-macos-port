@@ -402,7 +402,7 @@ public:
         return "FxSound Mac";
 #endif
     }
-    const juce::String getApplicationVersion() override {return "0.1.4";}
+    const juce::String getApplicationVersion() override {return "0.1.5";}
     void initialise(const juce::String&) override {
         window=std::make_unique<MainWindow>();
         window->setUsingNativeTitleBar(true);

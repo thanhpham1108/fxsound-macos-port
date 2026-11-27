@@ -13,7 +13,6 @@ struct JsDsp::Impl {
     JSObjectRef processor = nullptr;
     JSObjectRef process = nullptr;
     std::vector<float> samples;
-    static constexpr size_t maxFrames = 8192;
     ~Impl() {
         if (ctx) {
             if (buffer) JSValueUnprotect(ctx, buffer);
@@ -46,7 +45,7 @@ JsDsp::~JsDsp() = default;
 bool JsDsp::start(double sampleRate, const Settings& s, const std::string& directory) {
     impl_.reset(); error_.clear();
     auto engine = std::make_unique<Impl>();
-    engine->samples.resize(Impl::maxFrames * 2);
+    engine->samples.resize(maxFrames * 2);
     engine->ctx = JSGlobalContextCreate(nullptr);
     if (!engine->ctx) { error_ = "Cannot create JavaScriptCore context"; return false; }
     JSValueRef exception = nullptr;
@@ -101,7 +100,7 @@ bool JsDsp::start(double sampleRate, const Settings& s, const std::string& direc
 }
 
 bool JsDsp::process(float* samples, size_t frames) noexcept {
-    if (!impl_ || !samples || frames > Impl::maxFrames) return false;
+    if (!impl_ || !samples || frames > maxFrames) return false;
     auto& engine = *impl_;
     std::memcpy(engine.samples.data(), samples, frames * 2 * sizeof(float));
     JSValueRef args[] = {engine.buffer, JSValueMakeNumber(engine.ctx, static_cast<double>(frames))};

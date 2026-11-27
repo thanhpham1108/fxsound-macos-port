@@ -47,7 +47,7 @@ sh macos/install_local.sh
 
 ## Verification
 
-The offline full-chain test matched FxSound's upstream golden-tested JavaScript reference sample for sample for the tested 44.1 kHz scenario. A live 48 kHz run processed a separate application's audio with zero bad layouts, DSP failures, measured callback overruns, or clipped samples. These results do not establish exact parity with the installed 1.2.16 Windows executable or all output hardware.
+The full effects chain matched the upstream JavaScript reference sample for sample in the offline 44.1 kHz test. The v0.1.5 build completed 20 minutes of live playback at 48 kHz with zero callback overruns, bad buffer layouts, DSP failures, non-finite blocks, or clipped samples. The built-in speaker test used two buffers of playback delay, adding 21.3 ms. Longer sessions, other output hardware, and exact parity with the installed Windows FxSound executable still need validation.
 
 See [implementation status](docs/IMPLEMENTATION_STATUS.md), [source audit and signal path](docs/PORT_PLAN.md), and [macOS build details](macos/README.md).
 
